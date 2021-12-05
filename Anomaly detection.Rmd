@@ -1,0 +1,105 @@
+---
+title: "Anomaly detection"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Specifying the question
+Identifying the anomaly in the time series data.
+
+### Defining the metrics of success
+To consider the project successful I should have been able to determine whether there are anomalies in my data frame.
+
+## Loading my data
+
+```{r libraries, include= FALSE}
+
+library(readr)
+library(tidyr)
+library(anomalize)
+library(lubridate)
+library(dplyr)
+library(tibbletime)
+
+```
+
+```{r data loading}
+
+# Loading my dataset
+sales <- read.csv("http://bit.ly/CarreFourSalesDataset")
+head(sales)
+
+
+```
+
+## Checking my data
+
+```{r tail}
+
+# previewing the tail of the dataset
+tail(sales)
+
+```
+
+```{r dimensions}
+
+# displaying the dimensions of my data frame
+dim(sales)
+
+```
+
+```{r data types}
+
+# displaying the data types of my data frame
+str(sales)
+```
+
+## Data cleaning
+
+```{r missing vals}
+
+# checking for missing values
+colSums(is.na(sales))
+```
+
+```{r }
+
+# checking for duplicates
+sales[duplicated(sales), ]
+
+```
+```{r grouping}
+
+# grouping my data frame by date
+Sales <- aggregate(Sales ~ Date , data =sales, sum)
+
+```
+
+
+```{r convert data type}
+
+# converting the Date column to datetime data type
+Sales$Date <- as.Date(Sales$Date, format = "%m/%d/%y")
+sales_ <- as_tbl_time(Sales, Date)
+sales_
+
+```
+
+
+## Anomaly detection
+
+```{r anomalize}
+
+sales_ %>% 
+  time_decompose(Sales) %>% 
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  plot_anomalies(time_recomposed = TRUE, ncol = 2, alpha_dots = 0.2)
+
+
+```
+
+There don't seem to be any anomalies in my data.

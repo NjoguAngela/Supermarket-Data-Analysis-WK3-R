@@ -1,0 +1,120 @@
+---
+title: "Association analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Specifying the question
+Determining which products are more likely to purchased by a customer at the same time. 
+
+### Defining the metrics of success
+To consider this analysis a success I should have been able to determine the rules that are most likely to occur.
+
+### Context
+My data details products that were bought by a customer at a go.
+
+## Loading my data
+
+```{r libariries, include=FALSE}
+library(readr)
+library(arules)
+
+```
+
+
+```{r load data}
+
+# loading my data
+path <- "http://bit.ly/SupermarketDatasetII"
+
+
+# reading the data as transactions
+sup_data <- read.transactions(path, sep = ",")
+sup_data
+
+```
+* There are a total of 7501 transactions made and 119 items involved in those transactions.
+
+## Checking my data
+
+```{r confirming}
+
+# checking that sup_data is of transactions class
+class(sup_data)
+
+```
+
+```{r preview}
+
+# previewing the first 5 items of my data
+inspect(sup_data[1:5])
+
+```
+```{r summary}
+
+# displaying the summary of my data
+summary(sup_data)
+
+```
+
+ * Individuals that bought one item are the most frequent.
+ * The average number of items bought is around 4 items.
+ 
+
+```{r frequencies}
+
+# plotting the most frequent items in my data 
+par(mfrow= c(1,2))
+itemFrequencyPlot(sup_data, topN =10, col ="red")
+itemFrequencyPlot(sup_data, support =0.1, col ="black")
+
+
+
+```
+
+* Water was the most frequently bought item.
+
+## Performing associative analysis
+
+```{r model building}
+
+# building a model based on the association rules
+# a confidence of 0.8 is set and a support of 0.001
+
+rules <- apriori(sup_data, parameter = list(supp =0.001, conf =0.8))
+rules
+```
+
+* I have a total of 74 rules.
+
+```{r }
+
+# displaying the summary fo the rules
+summary(rules)
+
+```
+  * The average number of items to occur in a rule is around 4 and the maximum is six items.
+  * The average confidence for the rules is 85.04 which is a really good value.
+  * The lift values have a minimum value of 3 which is a good indication as to how the items in the set are highly dependant on each other.
+  
+
+```{r order}
+
+# ordering the rules to obtain the ones with the highest likelihood
+# the order will occur according to the value of confidence
+
+sorted_rules <- sort(rules, by ="confidence", decreasing = TRUE)
+inspect(sorted_rules[1:5])
+
+
+```
+
+* The first four rules have a confidence of 100% and the fifth 95% confidence.
+* The first rule indicates that an individual purchasing french fries, mushroom cream sauce and pasta is 100% likely to purchase escalope as well.
+* The second rule indicates that for individuals that have purchased ground beef, light cream and olive oil, there is a 100% confidence that they have bought mineral water as well.
+* The third rule expresses that individuals that bought cake, meatballs and mineral water are 100% likely to have made a purchase of milk as well.
+* The fourth rule indicates that individuals that have made a purchase of cake, olive oil and shrimp can be said- with a 100% confidence - to have made a purchase of water as well.
+* The fifth rule is almost similar to the first except french fries is not included in the antecedent. The rule indicates that an individual that has bought mushroom cream sauce and pasta is 95% likely to have made a purchase of escalope as well.

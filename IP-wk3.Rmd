@@ -1,0 +1,252 @@
+---
+title: "Carrefour Customer dataset Analysis- PCA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Specifying the question
+To make observations that may provide insights on how to maximize product sales.
+
+### Defining the metrics of success
+To term my analysis successful I should have been able to perform PCA and obtain the features responsible for most of the variation in the data and perform feature selection.
+
+### Context
+The data consists of customer records identifiable by ID, detailing products they purchased at a supermarket.
+The data consists of the following variables:
+
+  * Invoice.ID
+  * Branch of supermarket
+  * Customer.type
+  * Gender
+  * Product.line
+  * Unit.price
+  * Quantity
+  * Tax
+  * Date
+  * Time
+  * Payment
+  * Cost of goods - cogs
+  * Gross margin percentage
+  * Gross income
+  * Rating
+  * Total
+
+## Loading the data
+
+```{r libraries, include=FALSE}
+
+library(readr)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(ggbiplot)
+library(caret)
+library(reshape2)
+library(PCAmixdata)
+library(cluster)
+library(caret)
+```
+
+```{r loading}
+
+supermarket <- read.csv("http://bit.ly/CarreFourDataset")
+head(supermarket)
+
+
+```
+
+## Checking the data
+
+```{r tail}
+
+# previewing the tail of the data set
+tail(supermarket)
+
+```
+```{r dimensions}
+
+# checking for the dimensions of my data
+dim(supermarket)
+
+
+```
+```{r datatypes}
+
+# checking for my column data types
+str(supermarket)
+
+```
+
+## Data cleaning
+
+```{r missing}
+
+# checking for missing values
+colSums(is.na(supermarket))
+
+```
+There are no missing values in my data frame.
+
+```{r duplicates}
+
+# checking for duplicates in my data frame
+supermarket[duplicated(supermarket), ]
+
+```
+
+There are no duplicates in my data frame
+
+```{r convert date}
+
+# Converting the date and time columns into date time data type format
+supermarket$Date <- as.Date(supermarket$Date, format = "%m/%d/%y")
+
+# merging the two columns time and date
+supermarket$Date.Time <- paste(supermarket$Date, supermarket$Time)
+
+# converting to date time data type
+supermarket$Date.Time <- as.POSIXct(supermarket$Date.Time)
+
+```
+
+```{r unique}
+
+# checking the unique values categorical for my data frame variables
+unique(supermarket$Branch)
+unique(supermarket$Customer.type)
+unique(supermarket$Gender)
+unique(supermarket$Product.line)
+unique(supermarket$Payment)
+
+
+```
+
+```{r boxplot}
+
+range(supermarket$gross.margin.percentage)
+
+```
+
+The value for all the records for the gross margin percentage variable is the same hence this variable will not be useful in my analysis and will be dropped as a result.
+
+```{r dummies}
+
+# hot encoding my categorical variables
+
+cat <- supermarket[ , c("Branch", "Gender", "Product.line", "Customer.type", "Payment")]
+
+dummies <- dummyVars(~ ., data = cat)
+df_dummies <- as.data.frame(predict(dummies, newdata = cat))
+
+head(df_dummies)
+
+# merging with my original data frame
+
+Supermarket <- cbind(supermarket, df_dummies)
+head(Supermarket)
+```
+
+After encoding the categorical columns with the actual values can now be dropped.
+
+```{r drop columns}
+
+# dropping of the unnecessary columns
+to_drop <- c("Gender", "gross.margin.percentage", "Customer.type", "Branch", "Gender", "Product.line", "Payment", "Date", "Time")
+
+Supermarket <- Supermarket[ , !names(Supermarket) %in% to_drop]
+head(Supermarket)
+
+
+```
+
+## Multivariate analysis
+
+```{r correlations, fig.height=12, fig.width=12}
+
+data <- Supermarket[ ,-1] # excluding the ID variable
+
+data <- subset(data, select = -c(Date.Time))
+
+# computing the correlations for my data
+correlations <- round(cor(data), 2)
+
+# reshaping the correlations object by melting
+melted <- melt(correlations, na.rm = FALSE)
+
+
+# Plotting the correlations
+ggplot(data = melted, aes(Var1, Var2, fill =value)) + geom_tile() + geom_text(aes(Var1, Var2, label =value), color = "black", size =3) + scale_fill_gradient2(low = "#7730B3", high = "#FF3600", mid = "#17A9FC", midpoint = 0) + theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 10, hjust = 1), axis.text.y = element_text(vjust = 1, size = 10, hjust = 1))+
+ coord_fixed()
+```
+
+## Feature selection
+
+```{r feature selection}
+
+# removing redundancy by spotting the most highly correlated features
+high_cor <- findCorrelation(correlations, cutoff = 0.75)
+
+high_cor_f <- names(data[ ,high_cor])
+
+# removing the features with high correlations
+data_ <- data[ , !names(data) %in% high_cor_f]
+head(data_)
+```
+
+## Dimensionality reduction
+
+```{r pca}
+
+# performing pca
+data.pca <- prcomp(data_, center = TRUE, scale. = TRUE)
+
+summary(data.pca)
+
+```
+
+The first pca component only accounts for 11 percent and for the second 9 percent of the variations in the data. The cumulative variation indicates that the first 15 components account for all the variation of the data.
+
+```{r scree}
+
+# plotting a scree plots of my eigenvalues
+screeplot(data.pca, type = "line", main = "screeplot", npcs = 15)
+
+```
+
+The percentage variation of the data after the fifth principal component drops and then majorly drops in the 15th principal component. The 15th principal component doesn't contribute much to the overall variation present in the data.
+
+```{r plotting, fig.height=10, fig.width=12}
+
+# plotting the components
+ggbiplot(data.pca, varname.size =6, varname.abbrev = FALSE)
+
+```
+
+From the plot we I am able to observe the following:
+
+  * The variables Quantity, total and unit price are the most important variables in terms of contribution to the first principal component.
+  * The variables for the type of payment and the supermarket branches are the most important variables in terms of contribution to the second principal component.
+  * The above variables are the ones most credited for the variations in the data as they exhibit the longest arrows.
+  
+```{r pcamix, fig.height=10, fig.width=12, include=FALSE}
+
+df <- supermarket[ ,-1]
+
+time.col <- df[["Date.Time"]]
+df <- subset(df, select = -c(Date.Time, gross.margin.percentage, Date, Time))
+
+qual <- df[ ,c("Branch", "Customer.type", "Gender", "Product.line", "Payment")]
+quant <- subset(df, select = -c(Branch, Customer.type, Gender, Payment, Product.line))
+
+
+df.pca <- PCAmix(quant, qual, ndim = 6)
+df.pca
+summary(df.pca)
+
+```
+
+
